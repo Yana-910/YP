@@ -1,0 +1,77 @@
+f=open('fin','w')
+f.write('')
+f.close()
+f=open('fout','w')
+f.write('')
+f.close()
+
+from requests import request
+from bs4 import BeautifulSoup
+root='https://lenta.ru'
+def downloadHTML(root):
+    return request('GET', root).text
+import re
+def condition(text):
+    # strings = ['республик[^ ]+ парт[^ ]+ соед[^ ]+ штат[^ ]+','демократ[^ ]+ парт[^ ]+ соед[^ ]+ штат[^ ]+','демократ[^ ]+ парт[^ ]+ США','республик[^ ]+ парт[^ ]+ США'] 
+    strings = ['владимир[^ ]+ путин[^ ]+']
+    for string in strings:
+        match = re.search(string, text)
+        if match:
+            return True
+    return False
+import time
+
+
+
+for j in range(0,360*24):
+    f=open('./fin','r')
+    base=f.read().split('\n')
+    f.close()
+    htmlTexts =downloadHTML(root+'/parts/news')
+    BS = BeautifulSoup(htmlTexts, 'lxml')
+    results = BS.findAll("div", {"class" : "item news"})
+    f=open('./fin','a')
+    res=open('./fout','a')
+    for i in results:
+        href=BeautifulSoup(str(i), 'lxml').findAll("a")[1]['href']
+        if (href.find('http')==-1):
+            href=root+href
+        
+        # print(href)
+        if not (href in base):
+            f.write(href)
+            f.write('\n')
+            if (href.find(root))>=0:
+                htmlText=downloadHTML(href)
+                BS=BeautifulSoup(htmlText,'lxml')
+                
+                title=BS.findAll("h1", {"class" : "b-topic__title"})[0].text
+                text=BS.findAll("div", {"class" : "js-topic__text"})
+
+                if(condition(title.lower()))or(condition(text[0].text.split('\n')[0].lower())):
+                    print('Нашел новость')
+                    res.write("{\n")
+                    res.write("title:{\n")
+                    res.write(title)
+                    res.write("\n}\n")
+                    
+                    res.write("text:{\n")
+                    text=text[0].text.split('\n')[0]
+                    while(text.find("  ")>=0):
+                        text=text.replace("  "," ")
+                    while(text.find("\n\n")>=0):
+                        text=text.replace("\n\n","\n")
+                    res.write(text)
+                    res.write("}\n")
+                    author=BS.findAll("div", {"class" : "b-label__credits"})
+                    res.write("author:{\n")
+                    for i in author:
+                        res.write(i.text)
+                    res.write("\n}\n")
+                    res.write("}\n")
+
+    res.close()
+    f.close()
+    time.sleep(10)
+    print(str(j+1)+"-й шаг")
+
